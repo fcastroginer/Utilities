@@ -24,7 +24,7 @@ Contact: fcastroginer\@gmail.com
 \n/) if (@ARGV != 2 || ! defined $opts{1} || ! defined $opts{2});	
 
 
-# Convert column number 1-based to 0 based
+# Convert column number 1-based to 0-based
 my $col1 = $opts{1} - 1;
 my $col2 = $opts{2} - 1;
 
