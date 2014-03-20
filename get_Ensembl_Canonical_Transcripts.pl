@@ -29,7 +29,7 @@ my $gene_ids = $gene_adaptor->list_stable_ids();
 my $count = 0;
 my $defined_count = 0;
 my $undefined_count = 0;
-print "Processing " . scalar(@{$gene_ids}) . " gene IDs...\n";
+print STDERR "Processing " . scalar(@{$gene_ids}) . " gene IDs...\n";
 while (my $gene_id = shift(@{$gene_ids})) {
 	
 
