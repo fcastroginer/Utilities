@@ -28,6 +28,8 @@ Options:
 Contact: fcastroginer\@gmail.com
 \n/) if (@ARGV != 2 || ! defined $opts{1} || ! defined $opts{2});	
 
+die ("ERROR: file 1 $ARGV[0] doesn't exists") if( ! -e $ARGV[0] );
+die ("ERROR: file 2 $ARGV[1] doesn't exists at") if( ! -e $ARGV[1] );
 
 # Check column class
 my $coltype;
