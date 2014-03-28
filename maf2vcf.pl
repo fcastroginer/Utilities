@@ -186,12 +186,12 @@ while(<FILE>)
 		# Allele 2
 		$Allele2 = 0;
 		if ($Tumor_Seq_Allele2 ne $Reference_Allele){
+			$Allele2 = 1;
 			if ($Tumor_Seq_Allele1 eq $Reference_Allele) {
-				$Allele2 = 1;
 				$ALT=$Tumor_Seq_Allele2;
-			} else {
-				$Allele2 = 2;
-				$ALT=$ALT.",".$Tumor_Seq_Allele2;
+			} elsif ($Tumor_Seq_Allele1 ne $Tumor_Seq_Allele2) {
+					$Allele2 = 2;
+					$ALT=$ALT.",".$Tumor_Seq_Allele2;
 			}
 		}
 		if ($Tumor_Seq_Allele2 eq "-")
@@ -199,7 +199,7 @@ while(<FILE>)
 			if ($Tumor_Seq_Allele1 eq $Reference_Allele) {
 				$Allele2 = 1;
 				$ALT=$Reference2;
-			} elsif ($Tumor_Seq_Allele1 ne $Tumor_Seq_Allele1) {
+			} elsif ($Tumor_Seq_Allele1 ne $Tumor_Seq_Allele2) {
 				$Allele2 = 2;
 				$ALT=$ALT.",".$Reference2;
 			}
