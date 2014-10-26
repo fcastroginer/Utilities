@@ -1,0 +1,1 @@
+head -1 $1 | tr "\t" "\n" | awk 'BEGIN{FS="\t"}{print NR,$0}'
