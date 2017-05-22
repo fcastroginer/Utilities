@@ -143,8 +143,13 @@ sub process_file{
 		}
 	    }
 	    $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
-        $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
-     
+        if($nonCpG_total > 0) {
+          $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
+        } else {
+            $nonCpG_rate = 0;
+        }
+        print $nonCpG_count."\t".$nonCpG_total."\n";        
+        
         if ($nonCpG_rate >= $threshold){
 		    $sequence_fails = 1;
 		}
@@ -197,7 +202,12 @@ sub process_file{
 	    }
 
 	    $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
-        $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
+        if($nonCpG_total > 0) {
+          $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
+        } else {
+            $nonCpG_rate = 0;
+        }
+        
         if ($nonCpG_rate >= $threshold){
 		    $sequence_fails = 1;
 		}
@@ -225,17 +235,17 @@ sub process_file{
 			    $nonCpG_count = 0; # resetting the counter if there is any kind of non methylated cytosine on the way
 			}
 		    }
-		    
-		    if ($nonCpG_count >= $threshold){
-			$sequence_fails = 1;
-			last;
-		    }
 		}
-            $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
+        $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
+        if($nonCpG_total > 0) {
             $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
-            if ($nonCpG_rate >= $threshold){
-                $sequence_fails = 1;
-            }
+        } else {
+            $nonCpG_rate = 0;
+        }
+
+        if ($nonCpG_rate >= $threshold){
+            $sequence_fails = 1;
+        }
 	    }
 
 	    if ($sequence_fails){
