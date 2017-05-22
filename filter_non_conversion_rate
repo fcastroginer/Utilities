@@ -100,10 +100,10 @@ sub process_file{
     my $count = 0;
     my $kicked = 0;
     if ($single){
-	warn "Using a threshold of >> $threshold << methylation calls in non-CG context before a read gets removed\n\n";
+	warn "Using a threshold of >> $threshold % << methylation calls in non-CG context before a read gets removed\n\n";
     }
     else{
-	warn "Using a threshold of >> $threshold << methylation calls in non-CG context before a read pair gets removed (either read can fail the entire read pair)\n\n";
+	warn "Using a threshold of >> $threshold % << methylation calls in non-CG context before a read pair gets removed (either read can fail the entire read pair)\n\n";
     }
  
     while (<IN>){
