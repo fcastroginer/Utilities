@@ -148,8 +148,7 @@ sub process_file{
         } else {
             $nonCpG_rate = 0;
         }
-        print $nonCpG_count."\t".$nonCpG_total."\n";        
-        
+
         if ($nonCpG_rate >= $threshold){
 		    $sequence_fails = 1;
 		}
