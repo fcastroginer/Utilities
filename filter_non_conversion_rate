@@ -84,13 +84,13 @@ sub process_file{
     
     my $outfile = $infile;
     $outfile =~ s/\.bam$|\.sam$//;
-    $outfile =~ s/$/.nonCG_filtered.sam/;
-    open (OUT,"| samtools view -hS - > $outfile") or die "Failed to write to file $outfile: $!\n\n";
+    $outfile =~ s/$/.nonCG_filtered.bam/;
+    open (OUT,"| samtools view -hSb - > $outfile") or die "Failed to write to file $outfile: $!\n\n";
     
     my $removed = $infile;
     $removed =~ s/\.bam$|\.sam$//;
-    $removed =~ s/$/.nonCG_removed_seqs.sam/;
-    open (REMOVED,"| samtools view -hS - > $removed") or die "Failed to write removed sequences to outfile $removed: $!\n\n";
+    $removed =~ s/$/.nonCG_removed_seqs.bam/;
+    open (REMOVED,"| samtools view -hSb - > $removed") or die "Failed to write removed sequences to outfile $removed: $!\n\n";
     
     my $report = $infile;
     $report =~ s/\.bam$|\.sam$//;
