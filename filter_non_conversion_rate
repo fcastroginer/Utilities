@@ -276,12 +276,12 @@ sub process_file{
 	$insert = 'consecutive ';
     }
     if ($paired){
-	warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}non-CG calls in one of the reads):\t$kicked ($percent%)\n\n";
-  	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}non-CG calls in one of the reads):\t$kicked ($percent%)\n\n";
+	warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold % ${insert}non-CG calls in one of the reads):\t$kicked ($percent%)\n\n";
+  	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold % ${insert}non-CG calls in one of the reads):\t$kicked ($percent%)\n\n";
     }
     else{
-	warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}non-CG calls per read):\t$kicked ($percent%)\n\n";
-	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}non-CG calls per read):\t$kicked ($percent%)\n\n";
+	warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold % ${insert}non-CG calls per read):\t$kicked ($percent%)\n\n";
+	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold % ${insert}non-CG calls per read):\t$kicked ($percent%)\n\n";
     }
     
     close OUT or warn "Couldn't close OUT... $!\n";
