@@ -23,10 +23,15 @@ $|++;
 ## You should have received a copy of the GNU General Public License
 ## along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+## Modified version by Francesc Castro (fcastroginer@gmail.com):
+##  - new option 'threshold_perc' to use % as a filtering criteria
+##  - accepts values of 0 for one of threshold or threshold_perc
+
+
 my $parent_dir = getcwd();
 my $filter_version = 'v0.17.0';
 my ($single,$paired);
-my ($global_single,$global_paired,$samtools_path,$threshold,$consecutive) = process_commandline();
+my ($global_single,$global_paired,$samtools_path,$threshold,$threshold_perc,$consecutive) = process_commandline();
 
 my $start_run = time();
 # warn "Run started at: $start_run\n";
@@ -85,12 +90,12 @@ sub process_file{
     my $outfile = $infile;
     $outfile =~ s/\.bam$|\.sam$//;
     $outfile =~ s/$/.nonCG_filtered.bam/;
-    open (OUT,"| samtools view -hSb - > $outfile") or die "Failed to write to file $outfile: $!\n\n";
+    open (OUT,"| samtools view -Shb - > $outfile") or die "Failed to write to file $outfile: $!\n\n";
     
     my $removed = $infile;
     $removed =~ s/\.bam$|\.sam$//;
     $removed =~ s/$/.nonCG_removed_seqs.bam/;
-    open (REMOVED,"| samtools view -hSb - > $removed") or die "Failed to write removed sequences to outfile $removed: $!\n\n";
+    open (REMOVED,"| samtools view -Shb - > $removed") or die "Failed to write removed sequences to outfile $removed: $!\n\n";
     
     my $report = $infile;
     $report =~ s/\.bam$|\.sam$//;
@@ -99,11 +104,15 @@ sub process_file{
 
     my $count = 0;
     my $kicked = 0;
+    my $kicked_perc = 0;
+    
     if ($single){
-	warn "Using a threshold of >> $threshold % << methylation calls in non-CG context before a read gets removed\n\n";
+	warn "Using a threshold of >> $threshold << methylation calls in non-CG context before a read gets removed\n\n";
+    warn "Using a threshold of >> $threshold_perc % << methylation calls in non-CG context before a read gets removed\n\n";
     }
     else{
-	warn "Using a threshold of >> $threshold % << methylation calls in non-CG context before a read pair gets removed (either read can fail the entire read pair)\n\n";
+	warn "Using a threshold of >> $threshold << methylation calls in non-CG context before a read pair gets removed (either read can fail the entire read pair)\n\n";
+    warn "Using a threshold of >> $threshold_perc % << methylation calls in non-CG context before a read pair gets removed (either read can fail the entire read pair)\n\n";
     }
  
     while (<IN>){
@@ -116,15 +125,13 @@ sub process_file{
 	if ($single){
 	    my ($meth_call) = $1 if ($_ =~ /XM:Z:(.+?)\s/);
 	    # warn "$meth_call\n"; sleep(1);
-        my @fields = split "\t";
-        my $seq = $fields[9];
-
+	    
 	    my $sequence_fails = 0;
 	    my $nonCpG_count = 0;
         my $nonCpG_nonmeth_count = 0;
 	    my $nonCpG_total = 0;
         my $nonCpG_rate = 0;
-        
+	    
 	    ++$count;
 	    
 	    my @chars = split //,$meth_call;
@@ -133,28 +140,41 @@ sub process_file{
 		if ( ($char eq 'H') or ($char eq 'X') ){ # methylated non-CG calls
 		    ++$nonCpG_count;
 		}
+        
         if ( ($char eq 'h') or ($char eq 'x') ){ # non-methylated non-CG calls
 		    ++$nonCpG_nonmeth_count;
-		}
+        }
+        
 		if ($consecutive){
 		    if ( ($char eq 'z') or ($char eq 'h') or ($char eq 'x')){
 			$nonCpG_count = 0; # resetting the counter if there is any kind of non methylated cytosine on the way
 		    }
 		}
-	    }
-	    $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
-        if($nonCpG_total > 0) {
-          $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
-        } else {
-            $nonCpG_rate = 0;
-        }
-
-        if ($nonCpG_rate >= $threshold){
+        if ( ($char eq 'h') or ($char eq 'x') ){ # non-methylated non-CG calls
+		    ++$nonCpG_nonmeth_count;
+            }
+		if ($nonCpG_count >= $threshold){
 		    $sequence_fails = 1;
+            ++$kicked;
+		    last;
 		}
-         
+	    }
+        
+        if (! $sequence_fails) {
+            $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
+            if($nonCpG_total > 0) {
+              $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
+            } else {
+                $nonCpG_rate = 0;
+            }
+            if ($nonCpG_rate >= $threshold_perc){
+                $kicked_perc ++;
+                $sequence_fails = 1;
+            }
+        }
+	    
+        #print STDOUT "Filtering $sequence_fails $nonCpG_count $nonCpG_total $nonCpG_rate\n";
 	    if ($sequence_fails){
-		++$kicked;
 		print REMOVED;
 	    }
 	    else{
@@ -176,11 +196,11 @@ sub process_file{
 	    
 	    my $sequence_fails = 0;
 	    my $nonCpG_count = 0;
-        my $nonCpG_nonmeth_count = 0;
+	    my $nonCpG_nonmeth_count = 0;
 	    my $nonCpG_total = 0;
         my $nonCpG_rate = 0;
-        
-	    ++$count; # just one count per sequence pair
+	    
+        ++$count; # just one count per sequence pair
 	    
 	    # Read 1
 	    my @chars = split //,$meth_call_1;
@@ -189,35 +209,42 @@ sub process_file{
 		if ( ($char eq 'H') or ($char eq 'X') ){ # methylated non-CG calls
 		    ++$nonCpG_count;
 		}
+        
         if ( ($char eq 'h') or ($char eq 'x') ){ # non-methylated non-CG calls
 		    ++$nonCpG_nonmeth_count;
-		}
-
+        }
+        
 		if ($consecutive){
 		    if ( ($char eq 'z') or ($char eq 'h') or ($char eq 'x')){
 			$nonCpG_count = 0; # resetting the counter if there is any kind of non methylated cytosine on the way
 		    }
 		}
-	    }
-
-	    $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
-        if($nonCpG_total > 0) {
-          $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
-        } else {
-            $nonCpG_rate = 0;
-        }
         
-        if ($nonCpG_rate >= $threshold){
+		if ($nonCpG_count >= $threshold){
 		    $sequence_fails = 1;
+            ++$kicked;
+		    last;
 		}
+	    }
         
+        if (! $sequence_fails) {
+            $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
+            if($nonCpG_total > 0) {
+              $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
+            } else {
+                $nonCpG_rate = 0;
+            }
+            if ($nonCpG_rate >= $threshold_perc){
+                $kicked_perc ++;
+                $sequence_fails = 1;
+            }
+        }
+                
+	    
 	    unless ($sequence_fails){ # if Read 1 has failed the sequence pair already we do not need to look at Read 2
 		
 		$nonCpG_count = 0; # resetting counter
-        my $nonCpG_nonmeth_count = 0;
-	    my $nonCpG_total = 0;
-        my $nonCpG_rate = 0;
-        
+
 		# Read 2
 		@chars = split //,$meth_call_2;
 		
@@ -225,30 +252,40 @@ sub process_file{
 		    if ( ($char eq 'H') or ($char eq 'X') ){ # methylated non-CG calls
 			++$nonCpG_count;
 		    }
+            
             if ( ($char eq 'h') or ($char eq 'x') ){ # non-methylated non-CG calls
 		    ++$nonCpG_nonmeth_count;
             }
-
+            
 		    if ($consecutive){
 			if ( ($char eq 'z') or ($char eq 'h') or ($char eq 'x')){
 			    $nonCpG_count = 0; # resetting the counter if there is any kind of non methylated cytosine on the way
 			}
 		    }
+		    
+		    if ($nonCpG_count >= $threshold){
+			$sequence_fails = 1;
+            ++$kicked;
+			last;
+		    }
 		}
-        $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
-        if($nonCpG_total > 0) {
-            $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
-        } else {
-            $nonCpG_rate = 0;
-        }
-
-        if ($nonCpG_rate >= $threshold){
-            $sequence_fails = 1;
-        }
 	    }
-
+        
+        if (! $sequence_fails) {
+            $nonCpG_total = $nonCpG_count + $nonCpG_nonmeth_count;
+            if($nonCpG_total > 0) {
+              $nonCpG_rate = 100*$nonCpG_count / $nonCpG_total;
+            } else {
+                $nonCpG_rate = 0;
+            }
+            if ($nonCpG_rate >= $threshold_perc){
+                $kicked_perc ++;
+                $sequence_fails = 1;
+            }
+        }
+        
+        #print STDOUT "Filtering $sequence_fails $nonCpG_count $nonCpG_rate\n";
 	    if ($sequence_fails){
-		++$kicked;
 		print REMOVED $line_1;
 		print REMOVED $_;
 	    }
@@ -272,12 +309,19 @@ sub process_file{
     }
     
     my $percent;
+    my $percent_perc;
+    my $percent_total;
+    my $kicked_total = $kicked + $kicked_perc;
 
     if ($count ==0){ 
 	$percent = "N/A";
+    $percent_perc = "N/A";
+    $percent_total = "N/A";
     }
     else{
 	$percent = sprintf ("%.1f",$kicked/$count*100);
+    $percent_perc = sprintf ("%.1f",$kicked_perc/$count*100);
+    $percent_total = sprintf ("%.1f",$kicked_total/$count*100);
     }
     
     my $insert = '';
@@ -285,12 +329,29 @@ sub process_file{
 	$insert = 'consecutive ';
     }
     if ($paired){
-	warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold % ${insert}non-CG calls in one of the reads):\t$kicked ($percent%)\n\n";
-  	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold % ${insert}non-CG calls in one of the reads):\t$kicked ($percent%)\n\n";
+
+    warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}and $threshold_perc ${insert}% non-CG calls in one of the reads):\t$kicked_total ($percent_total%)\n";
+	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}and $threshold_perc ${insert}% non-CG calls in one of the reads):\t$kicked_total ($percent_total%)\n";
+    
+    warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}non-CG calls in one of the reads):\t$kicked ($percent%)\n";
+	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}non-CG calls in one of the reads):\t$kicked ($percent%)\n";
+
+    warn "Additional sequences removed because of apparent non-bisulfite conversion (at least $threshold_perc ${insert}% non-CG calls in one of the reads):\t$kicked_perc ($percent_perc%)\n\n";
+	print REPORT "Additional sequences removed because of apparent non-bisulfite conversion (at least $threshold_perc ${insert}% non-CG calls in one of the reads):\t$kicked_perc ($percent_perc%)\n\n";
+
+    
     }
     else{
-	warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold % ${insert}non-CG calls per read):\t$kicked ($percent%)\n\n";
-	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold % ${insert}non-CG calls per read):\t$kicked ($percent%)\n\n";
+	warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}and $threshold_perc ${insert}% non-CG calls per read):\t$kicked_total ($percent_total%)\n";
+	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}and $threshold_perc ${insert}% non-CG calls per read):\t$kicked_total ($percent_total%)\n";
+    
+    warn "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}non-CG calls per read):\t$kicked ($percent%)\n";
+	print REPORT "Sequences removed because of apparent non-bisulfite conversion (at least $threshold ${insert}non-CG calls per read):\t$kicked ($percent%)\n";
+
+    
+    warn "Additional sequences removed because of apparent non-bisulfite conversion (at least $threshold_perc ${insert}% non-CG calls per read):\t$kicked_perc ($percent_perc%)\n\n";
+	print REPORT "Additional sequences removed because of apparent non-bisulfite conversion (at least $threshold_perc ${insert}% non-CG calls per read):\t$kicked_perc ($percent_perc%)\n\n";
+
     }
     
     close OUT or warn "Couldn't close OUT... $!\n";
@@ -415,6 +476,7 @@ sub process_commandline{
 				   'p|paired' => \$global_paired,
 				   'samtools_path=s' => \$samtools_path,
 				   'threshold=i' => \$threshold,
+                   'threshold_perc=f' => \$threshold_perc,
 				   'consecutive' => \$consecutive,
 				   'version' => \$version,
 	);
@@ -510,14 +572,26 @@ VERSION
     ### THRESHOLD of methylated Cs in non-CG context
     if (defined $threshold){
 	unless ($threshold > 0 ){
-	    die "Please use a sensible value for $threshold (positive numbers only, default: [3])\n\n";
+	    die "Please use a sensible value for threshold $threshold (positive numbers only, default: [3])\n\n";
 	}
     }
     else{
 	$threshold = 3; # default
     }
+    
 
-    return ($single,$paired,$samtools_path,$threshold,$consecutive);
+    ### THRESHOLD of methylated Cs in non-CG context
+    if (defined $threshold_perc){
+	unless ($threshold_perc > 0 ){
+	    die "Please use a sensible value for threshold_perc $threshold_perc (positive numbers only, default: [10])\n\n";
+	}
+    }
+    else{
+	$threshold_perc = 10; # default
+    }
+
+
+    return ($single,$paired,$samtools_path,$threshold,$threshold_perc,$consecutive);
 }
 
 sub bam_isEmpty{
@@ -605,9 +679,13 @@ by read name first (e.g. using samtools sort -n)  ***
 
 -p/--paired            Deduplicate paired-end Bismark BAM files. If not specified the library type is auto-detected.
 
---threshold [int]      The percentage of methylated cytosines in non-CG context at which reads or read pairs are filtered
+--threshold [int]      The number of methylated cytosines in non-CG context at which reads or read pairs are filtered
                        out. For paired-end files either Read 1 or Read 2 can fail the entire read pair. Default: 3.
 
+--threshold_perc [num]  The percentage of methylated cytosines in non-CG context at which reads or read pairs are filtered
+                       out. For paired-end files either Read 1 or Read 2 can fail the entire read pair. Default: 10.
+
+                       
 --consecutive          Non-CG methylation has be found on consecutive non-CGs. Any kind of unmethylated cytosine (in
                        any context) resets the methylated non-CG counter to 0. Default: OFF.
 
